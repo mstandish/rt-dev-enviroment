@@ -1,5 +1,5 @@
 FROM rockylinux:9
-LABEL maintainer="Matthew Standish <matt@roboteyes.org>"
+LABEL maintainer="Matthew Standish <matt@roboteyes.orgu>"
 LABEL description="Request Tracker Development Container"
 ARG MIRROR_URL=https://ftp.ussg.iu.edu/linux
 ARG DNF_OPTS="--setopt=install_weak_deps=False --setopt=*.baseurl=" 
@@ -42,7 +42,7 @@ RUN wget https://www.cpan.org/src/5.0/perl-${PERL_VERSION}.tar.gz \
     && /opt/perl/bin/cpanm ${CPANM_OPTS} Net::SSLeay \
     && /opt/perl/bin/cpanm ${CPANM_OPTS} CPAN::DistnameInfo
 RUN /opt/perl/bin/cpanm ${CPANM_OPTS} LWP::Protocol::https
-COPY mbox_in_dir.patch /opt/rt/src/mbox_in_dir.patch
+COPY src/mbox_in_dir.patch /opt/rt/src/mbox_in_dir.patch
 RUN wget https://download.bestpractical.com/pub/rt/release/${RT_VERSION}.tar.gz \
     && tar -xf ${RT_VERSION}.tar.gz \
     && cd ${RT_VERSION} \
@@ -68,8 +68,8 @@ RUN RTHOME=/opt/rt /opt/perl/bin/cpanm ${CPANM_OPTS} \
         RTx::Calendar \
         RTx::TicketlistTransactions \
         RT::Extension::JSGantt
-COPY RT_SiteConfig.pm /opt/rt/etc/RT_SiteConfig.pm
-COPY dev-entrypoint.sh /usr/local/bin/dev-entrypoint.sh
+COPY src/RT_SiteConfig.pm /opt/rt/etc/RT_SiteConfig.pm
+COPY src/dev-entrypoint.sh /usr/local/bin/dev-entrypoint.sh
 RUN chmod +x /usr/local/bin/dev-entrypoint.sh
 USER rtuser
 ENV PATH="${PATH}:/opt/rt/sbin:/opt/rt/bin:/opt/perl/bin" \

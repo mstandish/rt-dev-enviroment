@@ -1,14 +1,15 @@
 #!/bin/bash
-container_root=$(pwd)
+container_root=$(pwd)/data
 mbox_dir=$container_root/mbox
 backup_dir=$container_root/backup
+config_dir=$container_root/config
+[ -e $backup_dir ] || mkdir -p $backup_dir
+[ -e $mbox_dir ] || mkdir -p $mbox_dir
+[ -e $config_dir ] || mkdir -p $config_dir
 container_name=rt
 
-[ -e $mbox_dir ] || mkdir -p $mbox_dir
-[ -e $backup_dir ] || mkdir -p $backup_dir
-
 podman container exists "$container_name" && podman stop "$container_name" && podman rm "$container_name"
-
+podman pull quay.io/roboteyes/request-tracker:fat_dev
 podman run --replace -dt --name "$container_name" -p 8080:8080 \
         --tz=local \
         --user 0:0 \
@@ -22,6 +23,7 @@ podman run --replace -dt --name "$container_name" -p 8080:8080 \
         -e RT_WEB_PORT=8080 \
         -e RT_MAIL_COMMAND=mbox \
         -e RT_WEB_DOMAIN=localhost \
-        -v $backup_dir:/opt/rt/backup:z \
-        -v $mbox_dir:/opt/rt/var/mbox:z \
-        rt6
+        -v $backup_dir:/opt/rt/backup:z,ro \
+        -v $mbox_dir:/opt/rt/var/mbox:z,rw \
+        -v $config_dir:/opt/rt/etc/RT_SiteConfig.d:z,ro \
+quay.io/roboteyes/request-tracker:fat_dev
