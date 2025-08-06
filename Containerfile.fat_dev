@@ -1,5 +1,5 @@
 FROM rockylinux:9
-LABEL maintainer="Matthew Standish <matt@roboteyes.orgu>"
+LABEL maintainer="Matthew Standish <matt@roboteyes.org>"
 LABEL description="Request Tracker Development Container"
 ARG MIRROR_URL=https://ftp.ussg.iu.edu/linux
 ARG DNF_OPTS="--setopt=install_weak_deps=False --setopt=*.baseurl=" 
