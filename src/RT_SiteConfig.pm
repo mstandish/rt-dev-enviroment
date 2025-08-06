@@ -1,0 +1,15 @@
+use utf8;
+Set($rtname, 'RAC RT');
+Set($Organization, "RAC");
+Set($Timezone, 'US/East-Indiana');
+Set($CanonicalizeRedirectURLs, RT_CANONICALIZE_REDIRECT_URLS);
+Set($MailCommand, "RT_MAIL_COMMAND");
+Set($WebDomain, "RT_WEB_DOMAIN");
+Set($WebPort, RT_WEB_PORT);
+Plugin('RT::Extension::ExcelFeed');
+Plugin('RT::Extension::CommandByMail');
+Plugin('RT::Extension::MergeUsers');
+Plugin('RTx::Calendar');
+Plugin('RTx::TicketlistTransactions');
+Plugin('RT::Extension::JSGantt');
+1;

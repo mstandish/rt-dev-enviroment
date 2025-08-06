@@ -1,0 +1,27 @@
+#!/bin/bash
+container_root=$(pwd)
+mbox_dir=$container_root/mbox
+backup_dir=$container_root/backup
+container_name=rt
+
+[ -e $mbox_dir ] || mkdir -p $mbox_dir
+[ -e $backup_dir ] || mkdir -p $backup_dir
+
+podman container exists "$container_name" && podman stop "$container_name" && podman rm "$container_name"
+
+podman run --replace -dt --name "$container_name" -p 8080:8080 \
+        --tz=local \
+        --user 0:0 \
+        --userns keep-id:uid=1000,gid=1000 \
+        --cgroups=no-conmon \
+        --rm \
+        --sdnotify=conmon \
+        --replace \
+        --name=rt \
+        --hostname=rt \
+        -e RT_WEB_PORT=8080 \
+        -e RT_MAIL_COMMAND=mbox \
+        -e RT_WEB_DOMAIN=localhost \
+        -v $backup_dir:/opt/rt/backup:z \
+        -v $mbox_dir:/opt/rt/var/mbox:z \
+        rt6

@@ -1,0 +1,85 @@
+FROM rockylinux:9
+LABEL maintainer="Matthew Standish <matt@roboteyes.org>"
+LABEL description="Request Tracker Development Container"
+ARG MIRROR_URL=https://ftp.ussg.iu.edu/linux
+ARG DNF_OPTS="--setopt=install_weak_deps=False --setopt=*.baseurl=" 
+ARG PERL_VERSION=5.42.0
+ARG CPAN_MIRROR=http://ftp.ussg.iu.edu/linux/CPAN
+ARG CPANM_OPTS="--no-man-pages --self-contained --exclude-vendor -nq --mirror ${CPAN_MIRROR}"
+ARG RT_VERSION=rt-6.0.0
+
+RUN dnf -y install 'dnf-command(config-manager)' \
+    && dnf -y config-manager --set-enabled crb \
+    && dnf -y install epel-release \
+    && sed -i s/mirrorlist/\#mirrorlist/g /etc/yum.repos.d/rocky.repo \
+    && sed -i s/mirrorlist/\#mirrorlist/g /etc/yum.repos.d/epel.repo
+RUN dnf config-manager --save ${DNF_OPTS}${MIRROR_URL}/rocky/9/BaseOS/x86_64/os/ baseos; \
+    dnf config-manager --save ${DNF_OPTS}${MIRROR_URL}/rocky/9/AppStream/x86_64/os/ appstream; \
+    dnf config-manager --save ${DNF_OPTS}${MIRROR_URL}/rocky/9/CRB/x86_64/os/ crb; \
+    dnf config-manager --save ${DNF_OPTS}${MIRROR_URL}/rocky/9/HighAvailability/x86_64/os/ highavailability; \
+    dnf config-manager --save ${DNF_OPTS}${MIRROR_URL}/rocky/9/RT/x86_64/os/ rt; \
+    dnf config-manager --save ${DNF_OPTS}${MIRROR_URL}/rocky/9/ResilientStorage/x86_64/os/ resilientstorage; \
+    dnf config-manager --save ${DNF_OPTS}${MIRROR_URL}/rocky/9/SAP/x86_64/os/ sap; \
+    dnf config-manager --save ${DNF_OPTS}${MIRROR_URL}/rocky/9/SAPHANA/x86_64/os/ saphana; \
+    dnf config-manager --save ${DNF_OPTS}${MIRROR_URL}/rocky/9/devel/x86_64/os/ devel; \
+    dnf config-manager --save ${DNF_OPTS}${MIRROR_URL}/rocky/9/extras/x86_64/os/ extras; \
+    dnf config-manager --save ${DNF_OPTS}${MIRROR_URL}/rocky/9/plus/x86_64/os/ plus; \
+    dnf config-manager --save ${DNF_OPTS}${MIRROR_URL}/epel/9/Everything/x86_64/ epel
+RUN dnf -y install graphviz w3m wget procps-ng openldap-clients make gcc tar expat-devel gcc-c++ openssl-devel gd-devel which crontabs cronie patch && \
+    dnf -y update --refresh 
+RUN useradd -u 1500 -s /sbin/nologin  rtuser -M
+RUN mkdir -p /opt/rt/src
+RUN chown rtuser:rtuser /opt/rt
+WORKDIR /opt/rt/src
+RUN wget https://www.cpan.org/src/5.0/perl-${PERL_VERSION}.tar.gz \
+    && tar -xzf perl-${PERL_VERSION}.tar.gz \
+    && cd perl-${PERL_VERSION} \
+    && ./Configure -Dprefix=/opt/perl -des \
+    && make \
+    && make install \
+    && (echo y;echo o conf prerequisites_policy follow;echo o conf mbuildpl_arg "--install_base /opt/perl";echo o conf makepl_arg "PREFIX=/opt/perl";echo o conf tar_args "--no-same-owner --no-same-permissions --warning=no-unknown-keyword"; echo o conf commit)|/opt/perl/bin/cpan \
+    && /opt/perl/bin/cpan -i App::cpanminus \
+    && /opt/perl/bin/cpanm ${CPANM_OPTS} Net::SSLeay \
+    && /opt/perl/bin/cpanm ${CPANM_OPTS} CPAN::DistnameInfo
+RUN /opt/perl/bin/cpanm ${CPANM_OPTS} LWP::Protocol::https
+COPY mbox_in_dir.patch /opt/rt/src/mbox_in_dir.patch
+RUN wget https://download.bestpractical.com/pub/rt/release/${RT_VERSION}.tar.gz \
+    && tar -xf ${RT_VERSION}.tar.gz \
+    && cd ${RT_VERSION} \
+    && export PATH="/opt/perl/bin:$PATH" \
+    && export RT_FIX_DEPS_CMD="/opt/perl/bin/cpanm ${CPANM_OPTS}" \
+    && patch -p1 < /opt/rt/src/mbox_in_dir.patch \
+    && ./configure --prefix=/opt/rt \
+        --enable-graphviz \
+        --enable-developer \
+        --enable-gd \
+        --enable-externalauth \
+        --enable-dashboard-chart-emails \
+        --with-db-type=SQLite \
+        --with-web-handler=standalone \
+    && make fixdeps RT_FIX_DEPS_CMD="/opt/perl/bin/cpanm ${CPANM_OPTS}" \
+    && make && make install && make initdb
+RUN RTHOME=/opt/rt /opt/perl/bin/cpanm ${CPANM_OPTS} \
+        Module::Install::RTx \
+        Dist::Zilla::MintingProfile::RTx \
+        RT::Extension::CommandByMail \
+        RT::Extension::ExcelFeed \
+        RT::Extension::MergeUsers \
+        RTx::Calendar \
+        RTx::TicketlistTransactions \
+        RT::Extension::JSGantt
+COPY RT_SiteConfig.pm /opt/rt/etc/RT_SiteConfig.pm
+COPY dev-entrypoint.sh /usr/local/bin/dev-entrypoint.sh
+RUN chmod +x /usr/local/bin/dev-entrypoint.sh
+USER rtuser
+ENV PATH="${PATH}:/opt/rt/sbin:/opt/rt/bin:/opt/perl/bin" \
+    RT_WEB_PORT=8080 \
+    RT_LOG_LEVEL=debug
+LABEL rt_version="${RT_VERSION}"
+LABEL perl_version="${PERL_VERSION}"
+LABEL cpan_mirror="${CPAN_MIRROR}"
+LABEL baseos="Rocky9"
+LABEL built="$(date +%Y-%m-%dT%H:%M:%S)"
+USER rtuser
+ENTRYPOINT ["dev-entrypoint.sh"]
+CMD ["/opt/rt/sbin/rt-server"]
